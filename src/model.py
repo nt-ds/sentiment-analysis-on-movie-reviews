@@ -497,37 +497,40 @@ def plot_confusion_matrix(real_labels,
     plt.show()
 
 
-def evaluate_model(model_at_hand, model_in_file, X_test, y_test, test_df, phrase_type, is_dl=False, is_recurrent=False):
+def evaluate_model(model_at_hand, model_in_file, X_test, y_test, test_df, phrase_type,
+                   is_dl=False, is_recurrent=False, show_wrongly_classified=False):
     """
     Evaluate model
 
     Arguments
     ---------
-    :param model_at_hand:       model readily available to evaluate
-                                value is either a model or None
+    :param model_at_hand:               model readily available to evaluate
+                                        value is either a model or None
 
-    :param model_in_file:       model saved in file to evaluate
-                                can choose ["logistic", "decision_tree", "random_forest",
-                                            "ann", "rnn", "lstm", "gru",
-                                            None]
-                                use either model_at_hand or model_in_file
+    :param model_in_file:               model saved in file to evaluate
+                                        can choose ["logistic", "decision_tree", "random_forest",
+                                                    "ann", "rnn", "lstm", "gru",
+                                                    None]
+                                        use either model_at_hand or model_in_file
 
-    :param X_test:              phrases to test on (X in test data)
+    :param X_test:                      phrases to test on (X in test data)
 
-    :param y_test:              sentiments to test on (y in test data)
+    :param y_test:                      sentiments to test on (y in test data)
 
-    :param test_df:             test data frame
+    :param test_df:                     test data frame
 
-    :param phrase_type:         name of processed phrases used
-                                can choose ["norm", "stemmed", "lemmed"]
+    :param phrase_type:                 name of processed phrases used
+                                        can choose ["norm", "stemmed", "lemmed"]
 
     Optional Arguments
     ------------------
-    :param is_dl:               is using a deep learning model (ann, rnn, lstm, gru)?
-                                only needed if model_at_hand is not None
+    :param is_dl:                       is using a deep learning model (ann, rnn, lstm, gru)?
+                                        only needed if model_at_hand is not None
 
-    :param is_recurrent:        is using a recurrent model (rnn, lstm, gru)?
-                                only needed if model_at_hand is not None
+    :param is_recurrent:                is using a recurrent model (rnn, lstm, gru)?
+                                        only needed if model_at_hand is not None
+
+    :param show_wrongly_classified:     show wrongly classified data?
     """
 
     # create target names
@@ -582,17 +585,19 @@ def evaluate_model(model_at_hand, model_in_file, X_test, y_test, test_df, phrase
     print("Plot Confusion Matrix")
     print("---------------------")
     plot_confusion_matrix(y_test, predicted, target_names=target_names)
-    print()
 
-    print("Wrongly Classified")
-    print("------------------")
-    indices = [i for i in range(len(y_test)) if y_test[i] != predicted[i]]
-    if phrase_type == "norm":
-        wrong_predictions = test_df.iloc[indices, [0, 2, 1]]
-    elif phrase_type == "stemmed":
-        wrong_predictions = test_df.iloc[indices, [0, 3, 1]]
-    else:
-        wrong_predictions = test_df.iloc[indices, [0, 4, 1]]
-    wrong_predictions["Predicted"] = predicted[indices]
-    wrong_predictions.reset_index(inplace=True, drop=True)
-    display(wrong_predictions)      # display a data frame in a jupyter notebook
+    if show_wrongly_classified:
+        print()
+
+        print("Wrongly Classified")
+        print("------------------")
+        indices = [i for i in range(len(y_test)) if y_test[i] != predicted[i]]
+        if phrase_type == "norm":
+            wrong_predictions = test_df.iloc[indices, [0, 2, 1]]
+        elif phrase_type == "stemmed":
+            wrong_predictions = test_df.iloc[indices, [0, 3, 1]]
+        else:
+            wrong_predictions = test_df.iloc[indices, [0, 4, 1]]
+        wrong_predictions["Predicted"] = predicted[indices]
+        wrong_predictions.reset_index(inplace=True, drop=True)
+        display(wrong_predictions)      # display a data frame in a jupyter notebook
