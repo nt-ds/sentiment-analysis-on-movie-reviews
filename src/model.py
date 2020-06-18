@@ -9,12 +9,12 @@ import seaborn as sns
 
 from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, TerminateOnNaN
 from keras.layers import Dense, GRU, LSTM, SimpleRNN
-from keras.models import Sequential
+from keras.models import load_model, Sequential
 from my_class import DataGenerator
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import classification_report, plot_confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import GridSearchCV, KFold, train_test_split
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.preprocessing import label_binarize
@@ -433,3 +433,166 @@ def build_DL_model(X_train, y_train, phrase_type, model_type):
 
     # return
     return model
+
+
+def plot_confusion_matrix(real_labels,
+                          predicted_labels,
+                          target_names,
+                          title="Confusion Matrix"):
+    """
+    Plot confusion matrix
+
+    Arguments
+    ---------
+    :param real_labels:         real labels
+
+    :param predicted_labels:    predicted labels
+
+    :param target_names:        given classification classes such as [0, 1, 2]
+                                the class names, for example: ["bed", "dog", "wow"]
+
+    Optional Arguments
+    ------------------
+    :param title:               the text to display at the top of the confusion matrix plot
+
+    Citation
+    --------
+    http://scikit-learn.org/stable/auto_examples/model_selection/plot_confusion_matrix.html
+
+    Source
+    ------
+    https://www.kaggle.com/grfiv4/plot-a-confusion-matrix
+    """
+
+    # get confusion matrix info
+    cm = confusion_matrix(real_labels, predicted_labels)
+    cm = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
+    accuracy = np.trace(cm) / float(np.sum(cm))
+
+    # create confusion matrix plot
+    # - plot confusion matrix
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    cax = ax.matshow(cm, cmap=plt.get_cmap("Blues"))
+    # - show color bar
+    fig.colorbar(cax)
+    # - set and show x and y tick labels
+    ax.tick_params(top=False, bottom=True, labeltop=False, labelbottom=True)
+    ax.set_yticklabels([""] + target_names)
+    ax.set_xticklabels([""] + target_names)
+    # - rotate the tick labels and set their alignment
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+    # - set minor ticks
+    ax.set_xticks(np.arange(-.5, 5, 1), minor=True)
+    ax.set_yticks(np.arange(-.5, 5, 1), minor=True)
+    # - draw grid lines based on minor ticks
+    ax.grid(which="minor", color="k", linestyle="-", linewidth=2)
+    # - hide other grid lines
+    plt.grid(False)
+    # - show plot, title, and labels
+    plt.tight_layout()
+    plt.title(title)
+    plt.ylabel("True Label")
+    plt.xlabel("Predicted Label\naccuracy={:0.4f}; inaccuracy={:0.4f}".format(accuracy, 1 - accuracy))
+    plt.show()
+
+
+def evaluate_model(model_at_hand, model_in_file, X_test, y_test, test_df, phrase_type, is_dl=False, is_recurrent=False):
+    """
+    Evaluate model
+
+    Arguments
+    ---------
+    :param model_at_hand:       model readily available to evaluate
+                                value is either a model or None
+
+    :param model_in_file:       model saved in file to evaluate
+                                can choose ["logistic", "decision_tree", "random_forest",
+                                            "ann", "rnn", "lstm", "gru",
+                                            None]
+                                use either model_at_hand or model_in_file
+
+    :param X_test:              phrases to test on (X in test data)
+
+    :param y_test:              sentiments to test on (y in test data)
+
+    :param test_df:             test data frame
+
+    :param phrase_type:         name of processed phrases used
+                                can choose ["norm", "stemmed", "lemmed"]
+
+    Optional Arguments
+    ------------------
+    :param is_dl:               is using a deep learning model (ann, rnn, lstm, gru)?
+                                only needed if model_at_hand is not None
+
+    :param is_recurrent:        is using a recurrent model (rnn, lstm, gru)?
+                                only needed if model_at_hand is not None
+    """
+
+    # create target names
+    target_names = ["negative", "somewhat negative", "neutral", "somewhat positive", "positive"]
+
+    # vectorize phrases
+    vectorized_X_test = vectorize_phrases(phrases=X_test, phrase_type=phrase_type)
+
+    # format test phrases
+    if model_at_hand is not None:
+        if is_dl:
+            vectorized_X_test = vectorized_X_test.toarray()
+    else:
+        if model_in_file == "ann" or model_in_file == "rnn" or model_in_file == "lstm" or model_in_file == "gru":
+            vectorized_X_test = vectorized_X_test.toarray()
+
+    if model_at_hand is not None:
+        if is_recurrent:
+            vectorized_X_test = np.reshape(vectorized_X_test,
+                                           (vectorized_X_test.shape[0], 1, vectorized_X_test.shape[1]))
+    else:
+        if model_in_file == "rnn" or model_in_file == "lstm" or model_in_file == "gru":
+            vectorized_X_test = np.reshape(vectorized_X_test,
+                                           (vectorized_X_test.shape[0], 1, vectorized_X_test.shape[1]))
+
+    # get and run model
+    if model_at_hand is not None:
+        model = model_at_hand
+        predicted = model.predict(vectorized_X_test).argmax(axis=1)
+    else:
+        if model_in_file is not None:
+            if model_in_file == "logistic" or model_in_file == "decision_tree" or model_in_file == "random_forest":
+                saved_model = open(
+                    "C:\\Users\\15713\\Desktop\\DS Projects\\Sentiment Analysis on Movie "
+                    "Reviews\\sentiment-analysis-on-movie-reviews\\models\\" + phrase_type + "_" + model_in_file +
+                    "_model.pickle", "rb")
+                model = pickle.load(saved_model)
+                saved_model.close()
+            else:
+                model = load_model("C:\\Users\\15713\\Desktop\\DS Projects\\Sentiment Analysis on Movie "
+                                   "Reviews\\sentiment-analysis-on-movie-reviews\\models\\" + phrase_type + "_" +
+                                   model_in_file + "_model.hdf5")
+            predicted = model.predict(vectorized_X_test).argmax(axis=1)
+
+    # evaluate model
+    print("Classification Report")
+    print("---------------------")
+    report = classification_report(y_test, predicted, target_names=target_names)
+    print(report)
+    print()
+
+    print("Plot Confusion Matrix")
+    print("---------------------")
+    plot_confusion_matrix(y_test, predicted, target_names=target_names)
+    print()
+
+    print("Wrongly Classified")
+    print("------------------")
+    indices = [i for i in range(len(y_test)) if y_test[i] != predicted[i]]
+    if phrase_type == "norm":
+        wrong_predictions = test_df.iloc[indices, [0, 2, 1]]
+    elif phrase_type == "stemmed":
+        wrong_predictions = test_df.iloc[indices, [0, 3, 1]]
+    else:
+        wrong_predictions = test_df.iloc[indices, [0, 4, 1]]
+    wrong_predictions["Predicted"] = predicted[indices]
+    wrong_predictions.reset_index(inplace=True, drop=True)
+    display(wrong_predictions)      # display a data frame in a jupyter notebook
